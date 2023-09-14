@@ -1,0 +1,362 @@
+"""
+This is a personal project I created to assist a friend who keeps track from data he acquires from PDFs that he downloads every month.
+
+The proccess is simple, enter the website, look for the PDFs, download, look for the data and insert it in a spreadsheet.
+
+It took a little longer that I expected to build this because I found out that there is not much pattern to the way those PDFs are created...
+
+The pages where the information is stored sometimes change and also the location from the information on that page.
+
+"""
+
+import pdfplumber
+import pandas as pd
+import re
+import os
+import requests
+from bs4 import BeautifulSoup
+import wget
+
+# Uncomment this if you want to download all the PDFs:
+# And also ajust the vaue of the 'for' loop in 'PART 1' to the variabe 'range'
+
+# url = 'https://www.datazap.com.br/indices-de-venda/'
+#
+# # Send an HTTP GET request to the URL
+# response = requests.get(url)
+#
+# # Check if the request was successful (status code 200)
+# if response.status_code == 200:
+#     # Parse the HTML content of the page using BeautifulSoup
+#     soup = BeautifulSoup(response.text, 'html.parser')
+#
+#     # Find all <a> tags that contain the text "pdf" (case-insensitive)
+#     pdf_links = soup.find_all('a', href=lambda href: href and 'pdf' in href.lower())
+#
+#     if pdf_links:
+#
+#         # Create a list to store the names of the downloaded files
+#         downloaded_files = []
+#
+#         for index, pdf_link in enumerate(pdf_links, start=1):
+#             pdf_url = pdf_link['href']
+#             pdf_filename = f"{index}.pdf"  # Sequential filename
+#
+#             print(f"Downloading {pdf_filename} from {pdf_url}")
+#
+#             # Download the PDF file using wget
+#             wget.download(pdf_url, pdf_filename)
+#
+#             print(f"Download of {pdf_filename} completed.")
+#
+#             # Append the filename to the list
+#             downloaded_files.append(pdf_filename)
+#
+#         # Print the list of downloaded file names
+#         print("List of downloaded files:")
+#         for filename in downloaded_files:
+#             print(filename)
+#     else:
+#         print("No PDF download links found on the page.")
+# else:
+#     print(f"Failed to retrieve the webpage. Status code: {response.status_code}")
+
+# Initializing a list for including the output in the end of the 'for' loop.
+data_list = []
+
+# Initialize an empty DataFrame for df2 before the main 'for' loop
+header2 = ['ano', 'mes', 'bairro', 'preco_m2']
+df2 = pd.DataFrame(columns=header2)
+
+
+##### PART 1 - GENERAL DATA #####
+# (year,month,population,territorial_area,pib,amount_of_houses,amount_of_buildings,avarege_income,sample,sq_ft_price
+
+def numbers(string):
+    """
+    This function looks for numeric digits inside a string.
+
+    :param string: string containing the value i want to find
+    :return: number located inside the string
+    """
+    num = ''
+    for c in string:
+        if c.isdigit():
+            num = num + c
+    return num
+
+
+def cleaning1(a):
+    """
+    Used to take the value in a string inside ') ' and ' m'
+
+    :param a: the variable containing the string i want to clean
+    :return: the variable 'a' cleaned
+    """
+
+    t = a.rsplit(') ', 1)[1].rsplit(' m', 1)[0]
+
+    return t
+
+
+def cleaning2(a):
+    """
+    Used to take the value in a string inside '$ ' and ' p'
+
+    :param a: the variable containing the string i want to clean
+    :return: the variable 'a' cleaned
+    """
+
+    t = a.rsplit('$ ', 1)[1].rsplit(' p', 1)[0]
+
+    return t
+
+
+def cleaning3(a):
+    """
+    Used to remove spaces from a string
+
+    :param a: the variable containing the string i want to clean
+    :return: the variable 'a' cleaned
+    """
+
+    t = a.replace(' ', '')
+
+    return t
+
+
+pg = ''
+pathpdf = ''
+# range = len(downloaded_files) + 1
+
+# Loop to iterate through all the downloaded files:
+for i in range(1, 40): # Add variable range as a limit here if you want to download the PDFs
+    pathpdf = str(i) + '.pdf'
+
+    # Opening the file:
+    f = pdfplumber.open(pathpdf)
+
+    # Finding out the amount of pages to locate the page i'm interested in:
+    if len(f.pages) == 28:
+        pagina_str = list(str(f.pages[18].extract_text()).splitlines())
+        pg = 18
+    elif len(f.pages) == 27:
+        pagina_str = list(str(f.pages[17].extract_text()).splitlines())
+        pg = 17
+    else:
+        pagina_str = list(str(f.pages[19].extract_text()).splitlines())
+        pg = 19
+
+    # Printing the status of the process:
+    print('###############')
+    print('Analisando arquivo: ', pathpdf)
+
+    populacao_residente = numbers(cleaning1(pagina_str[3]))
+
+    area_territorial = numbers(cleaning1(pagina_str[4]))
+
+    pib = numbers(cleaning2(pagina_str[6]))
+
+    quantidade_domicilios = numbers(cleaning1(pagina_str[7]))
+
+    quantidade_apartamentos = numbers(cleaning1(pagina_str[8]))
+
+    # Some parts of the PDF files are not formatted the same, so we check how to procced:
+    try:
+        renda_media = numbers(cleaning2(pagina_str[9]))
+    except IndexError:
+        renda_media = numbers(cleaning2(pagina_str[10]))
+
+    amostra_regex = re.compile(r'(\d)?\d\d\.\d\d\d')
+
+    try:
+        amostra = amostra_regex.search(cleaning3(pagina_str[15]))
+        amostra.group()
+    except AttributeError:
+        amostra = amostra_regex.search(cleaning3(pagina_str[16]))
+        amostra.group()
+
+    pmedio_regex = re.compile(r'..\d\.\d\d\d\/.')
+
+    # Some of the differences between the pdfs can be spotted through its length:
+    if len(pagina_str) == 43:
+        try:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[19]))
+            preco_medio.group()
+        except AttributeError:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[20]))
+            preco_medio.group()
+    elif len(pagina_str) == 44:
+        try:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[20]))
+            preco_medio.group()
+        except AttributeError:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[21]))
+            preco_medio.group()
+    elif len(pagina_str) == 50:
+        preco_medio = pmedio_regex.search(cleaning3(pagina_str[24]))
+        preco_medio.group()
+    elif len(pagina_str) == 49:
+        preco_medio = pmedio_regex.search(cleaning3(pagina_str[23]))
+        preco_medio.group()
+    elif len(pagina_str) == 48:
+        try:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[24]))
+            preco_medio.group()
+        except AttributeError:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[22]))
+            preco_medio.group()
+    elif len(pagina_str) == 46:
+        try:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[22]))
+            preco_medio.group()
+        except AttributeError:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[23]))
+            preco_medio.group()
+    elif len(pagina_str) == 47:
+        try:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[23]))
+            preco_medio.group()
+        except AttributeError:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[24]))
+            preco_medio.group()
+    else:
+        try:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[21]))
+            preco_medio.group()
+        except AttributeError:
+            preco_medio = pmedio_regex.search(cleaning3(pagina_str[22]))
+            preco_medio.group()
+
+    preco_medio_final = str(preco_medio.group().replace('R$', '')).replace('.', '').replace('/m', '')
+
+    # Getting the month and year from the last item on the page:
+    mes = pagina_str[-1].rsplit('/', 1)[0].title().rsplit(' ', 1)[-1]
+    ano = pagina_str[-1].rsplit('/', 1)[1]
+
+    ##### PART 2 - Neighborhoods #####
+    """
+    The main approach here, since the pdfs are not standard on the way
+    the data is presented is to add the whole page to a list of strings
+    and manipulate the words separately.
+    """
+
+    # Creating a list for the neighborhoods:
+    bairros_str = []
+    bairros = []
+    p_m2 = []
+
+    # Iterating through the page to find the neighborhoods
+    for i in pagina_str:
+        # Checking conditions to see if the string in the list has a neighborhood on it
+        if i[0:2].isupper() and pagina_str.index(i) > 26 and (pagina_str.index(i) != (len(pagina_str) - 1)):
+            # Appending neighborhoods to the list:
+            bairros_str.append(i)
+
+    # Some of the PDFs have different formatting, so we are checking
+    # the type of each document to see how we deal with it:
+
+    if ano == '2020' or (ano == '2021' and mes == 'Janeiro') or (ano == '2021' and mes == 'Fevereiro') \
+            or (ano == '2021' and mes == 'Março') or (ano == '2021' and mes == 'Abril'):
+
+        if len(bairros_str) != 13 and len(bairros_str) != 11 and len(bairros_str) != 10:
+
+            for i in bairros_str:
+                bairros.append(i.rsplit(' R$', 1)[0].title())
+                p_m2.append(numbers(i.rsplit(' R$ ', 1)[1].rsplit(' /m', 1)[0]))
+
+        elif len(bairros_str) == 10:
+            bairros2_str = bairros_str[2:len(bairros_str)]
+
+            for i in bairros2_str:
+                x1 = i.split(' ')
+                valor = str(x1[-1])
+                del x1[-1]
+                x2 = ' '.join([str(elem) for elem in x1])
+                bairros.append(x2.title())
+                p_m2.append(str(numbers(valor)))
+
+        else:
+            bairros2_str = bairros_str[3:len(bairros_str)]
+
+            for i in bairros2_str:
+                x1 = i.split(' ')
+                valor = str(x1[-1])
+                del x1[-1]
+                x2 = ' '.join([str(elem) for elem in x1])
+                bairros.append(x2.title())
+                p_m2.append(str(numbers(valor)))
+
+    else:
+        if len(bairros_str) != 13 and len(bairros_str) != 11 and len(bairros_str) != 10:
+            for i in bairros_str:
+                bairros.append(i.rsplit(' R$', 1)[0].title())
+                p_m2.append(numbers(i.rsplit(' R$ ', 1)[1].rsplit(' /m', 1)[0]))
+
+        elif len(bairros_str) == 10:
+            bairros2_str = bairros_str
+            for i in bairros2_str:
+                x1 = i.split(' ')
+                valor = str(x1[-3])
+                del x1[-1]
+                del x1[-1]
+                del x1[-1]
+                del x1[-1]
+                x2 = ' '.join([str(elem) for elem in x1])
+                bairros.append(x2.title())
+                p_m2.append(str(numbers(valor)))
+
+        else:
+            bairros2_str = bairros_str[1:len(bairros_str)]
+
+            for i in bairros2_str:
+                x1 = i.split(' ')
+                valor = str(x1[-1])
+                del x1[-1]
+                x2 = ' '.join([str(elem) for elem in x1])
+                bairros.append(x2.title())
+                p_m2.append(str(numbers(valor)))
+
+    ##### PART 3 - CREATE A DATAFRAME TO STORE FIRST TABLE #####
+    """
+    Add the current pdf data to a dataframe and follow to the next one.
+    """
+
+    # Create a dictionary for the current row
+    df1_dict = {
+        'ano': ano,
+        'mes': mes,
+        'pop_residente': populacao_residente,
+        'area_territorial': area_territorial,
+        'pib': pib,
+        'quantidade_de_domicilios': quantidade_domicilios,
+        'quantidade_de_apartamentos': quantidade_apartamentos,
+        'renda_media_domiciliar': renda_media,
+        'amostra': amostra.group(),
+        'preco_medio_m2': preco_medio_final
+    }
+    data_list.append(df1_dict)
+
+    ##### PART 4 - CREATE A DATAFRAME TO STORE SECOND TABLE #####
+
+    for bairro, preco_m2 in zip(bairros, p_m2):
+        df2_dict = {
+            'ano': ano,
+            'mes': mes,
+            'bairro': bairro,
+            'preco_m2': preco_m2
+        }
+
+        # Append the dictionary as a new row to df2
+        df2 = pd.concat([df2, pd.DataFrame([df2_dict])], ignore_index=True)
+
+    # Informing if the whole process was completed succesfully:
+    print('Arquivo ', pathpdf, ' analisado com sucesso.')
+
+# Append the first dictionary as a new row to the DataFrame1
+df1 = pd.DataFrame(data_list)
+
+# EXPORT THE FILE:
+
+df1.to_excel('data_frame1_analise.xlsx')
+df2.to_excel('data_frame2_bairros.xlsx')
