@@ -254,7 +254,8 @@ for i in range(1, 40): # Add variable range as a limit here if you want to downl
             bairros_str.append(i)
 
     # Some of the PDFs have different formatting, so we are checking
-    # the type of each document to see how we deal with it:
+    # the type of each document to see how we deal with it, since after April 2021
+    # the formatting of the pages changed:
 
     if ano == '2020' or (ano == '2021' and mes == 'Janeiro') or (ano == '2021' and mes == 'Fevereiro') \
             or (ano == '2021' and mes == 'Março') or (ano == '2021' and mes == 'Abril'):
