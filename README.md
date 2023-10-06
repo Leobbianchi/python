@@ -1,11 +1,7 @@
 # python
 
-This is a personal project I created to assist a friend who keeps track from data he acquires from PDFs that he downloads every month from a specific website.
+This is a personal project I developed to assist a friend who needs to extract data from PDFs downloaded monthly from a specific website. The process involves visiting the website, downloading the PDFs, extracting the data from each PDF, and organizing it into a spreadsheet.
 
-The proccess is simple, enter the website, look for the PDFs, download them, look for the data inside each PDF and insert it into a spreadsheet.
+Building this project took longer than expected because the PDFs didn't follow a consistent pattern. The pages containing the relevant information and their locations within the PDFs varied.
 
-It took a little longer than I expected to build this because I found out that there is not much pattern to the way those PDFs are created...
-
-The pages where the information is stored sometimes change and also the location from the information on that page.
-
-But after some tests, the final product was able to succesfully deliver the solution for the required need.
+However, after conducting numerous tests and refining the solution, I successfully addressed the challenge and created a tool that fulfills the required task
